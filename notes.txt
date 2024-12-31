@@ -1,0 +1,196 @@
+# Invoice Management Application Notes
+
+## Tech Stack
+- Frontend: Vite + React
+- Styling: Tailwind CSS
+- Backend: Supabase (PostgreSQL + Auth + Storage)
+- State Management: React Context
+- UI Components: react-icons, react-hot-toast
+- Routing: react-router-dom
+
+## Project Structure
+/src
+  /components
+    /layout
+      - MainLayout.jsx (Main layout with sidebar and header)
+    /setup
+      - CompanySetup.jsx (Company management)
+      - ProductSetup.jsx (Product management)
+      - SchemaSetup.jsx (Invoice schema management)
+      - DefaultSettings.jsx (User preferences)
+    /invoices
+      - NewInvoice.jsx (Create new invoice)
+      - InvoiceList.jsx (List all invoices)
+    - Dashboard.jsx (Main dashboard)
+    - Auth.jsx (Authentication)
+  /context
+    - GlobalContext.jsx (Global state management)
+  /utils
+    - fileStorage.js (File upload utilities)
+
+## Database Schema
+1. companies
+   - id (UUID, PK)
+   - name (TEXT)
+   - email (TEXT)
+   - phone (TEXT)
+   - address (TEXT)
+   - user_id (UUID, FK to auth.users)
+   - created_at (TIMESTAMP)
+   - updated_at (TIMESTAMP)
+
+2. invoice_schemas
+   - id (UUID, PK)
+   - name (TEXT)
+   - schema (JSONB) - Contains field definitions
+   - is_default (BOOLEAN)
+   - user_id (UUID, FK to auth.users)
+   - created_at (TIMESTAMP)
+
+3. invoices
+   - id (UUID, PK)
+   - invoice_number (TEXT)
+   - company_id (UUID, FK to companies)
+   - issue_date (DATE)
+   - due_date (DATE)
+   - status (TEXT) - ['draft', 'sent', 'paid', 'overdue', 'cancelled']
+   - total_amount (NUMERIC)
+   - scanned_copy (TEXT) - File path in storage
+   - schema_id (UUID, FK to invoice_schemas)
+   - schema_data (JSONB) - Dynamic fields based on schema
+   - user_id (UUID, FK to auth.users)
+   - created_at (TIMESTAMP)
+
+## Storage Configuration
+- Bucket: 'invoice-files'
+- Structure: /{user_id}/{timestamp}.{extension}
+- Allowed types: .pdf, .jpg, .jpeg, .png
+
+## Authentication & Security
+- Supabase Auth with email/password
+- Row Level Security (RLS) policies on all tables
+- Storage policies for invoice files
+- User-specific data isolation
+
+### RLS Policies Setup
+```sql
+-- Enable RLS on tables
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoice_schemas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+
+-- Companies policies
+CREATE POLICY "Users can view their own companies"
+  ON companies FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own companies"
+  ON companies FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own companies"
+  ON companies FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own companies"
+  ON companies FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Invoice schemas policies
+CREATE POLICY "Users can view their own schemas"
+  ON invoice_schemas FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own schemas"
+  ON invoice_schemas FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own schemas"
+  ON invoice_schemas FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own schemas"
+  ON invoice_schemas FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Invoices policies
+CREATE POLICY "Users can view their own invoices"
+  ON invoices FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own invoices"
+  ON invoices FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own invoices"
+  ON invoices FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own invoices"
+  ON invoices FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Storage policies
+CREATE POLICY "Users can upload their own files"
+  ON storage.objects FOR INSERT
+  WITH CHECK (auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users can view their own files"
+  ON storage.objects FOR SELECT
+  USING (auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users can update their own files"
+  ON storage.objects FOR UPDATE
+  USING (auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users can delete their own files"
+  ON storage.objects FOR DELETE
+  USING (auth.uid()::text = (storage.foldername(name))[1]);
+```
+
+## Global State Management
+Managed in GlobalContext:
+- User session
+- Authentication state
+- Toast notifications
+- Loading states
+
+## Invoice Creation Process
+1. User selects a company and invoice schema
+2. Dynamic form fields are generated based on selected schema
+3. Required fields:
+   - Invoice number
+   - Company
+   - Issue date
+   - Due date
+   - Status
+   - Scanned copy
+4. Schema-specific fields are stored in schema_data JSONB
+5. Files are uploaded to invoice-files bucket
+6. Invoice record is created with all fields
+
+## Styling Guidelines
+- Primary color: #6366f1 (Indigo)
+- Hover state: #4f46e5
+- Form inputs: Full width, rounded borders
+- Cards: White background, subtle shadow
+- Buttons: Primary and secondary variants
+- Responsive breakpoints: sm, md, lg, xl
+
+## Important Notes
+1. Always include user_id in database operations
+2. Handle file uploads before saving records
+3. Validate schema fields based on type
+4. Check for required fields before submission
+5. Use proper error handling and user feedback
+
+## Future Considerations
+1. Batch invoice operations
+2. Invoice templates
+3. Export functionality
+4. Payment integration
+5. Email notifications
+6. Advanced reporting 
