@@ -1,219 +1,82 @@
 import { useState, useEffect } from 'react'
-import { FaPlus, FaEdit, FaTrash, FaLock } from 'react-icons/fa'
+import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa'
 import { supabase } from '../../supabase'
-import { toast } from 'react-hot-toast'
 import { useGlobal } from '../../context/GlobalContext'
-
-const FIELD_TYPES = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'date', label: 'Date' },
-  { value: 'select', label: 'Dropdown' },
-  { value: 'textarea', label: 'Text Area' },
-  { value: 'checkbox', label: 'Checkbox' }
-]
-
-const DEFAULT_SCHEMA = {
-  fields: [
-    { name: 'invoice_number', label: 'Invoice Number', type: 'text', required: true },
-    { name: 'date', label: 'Date', type: 'date', required: true },
-    { name: 'due_date', label: 'Due Date', type: 'date', required: true },
-    { name: 'client_name', label: 'Client Name', type: 'text', required: true },
-    { name: 'client_address', label: 'Client Address', type: 'textarea', required: true },
-    { name: 'subtotal', label: 'Subtotal', type: 'number', required: true },
-    { name: 'tax_rate', label: 'Tax Rate (%)', type: 'number', required: false },
-    { name: 'tax_amount', label: 'Tax Amount', type: 'number', required: false },
-    { name: 'total', label: 'Total Amount', type: 'number', required: true },
-    { name: 'notes', label: 'Notes', type: 'textarea', required: false }
-  ],
-  required_fields: [
-    {
-      name: 'payment_status',
-      type: 'select',
-      label: 'Payment Status',
-      required: true,
-      options: ['paid', 'unpaid']
-    },
-    {
-      name: 'scanned_copy',
-      type: 'file',
-      label: 'Scanned Copy',
-      required: true,
-      accept: '.pdf,.jpg,.jpeg,.png'
-    }
-  ]
-}
+import { toast } from 'react-hot-toast'
+import { 
+  Input, 
+  Textarea, 
+  Label, 
+  FormGroup, 
+  Button 
+} from '../ui/FormElements'
 
 export default function SchemaSetup() {
   const { session } = useGlobal()
+  const [loading, setLoading] = useState(false)
   const [schemas, setSchemas] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
-  const [currentSchema, setCurrentSchema] = useState({
+  const [editingSchema, setEditingSchema] = useState(null)
+  const [formData, setFormData] = useState({
     name: '',
-    is_default: false,
+    description: '',
     schema: {
-      fields: [],
-      required_fields: [
-        {
-          name: 'payment_status',
-          type: 'select',
-          label: 'Payment Status',
-          required: true,
-          options: ['paid', 'unpaid']
-        },
-        {
-          name: 'scanned_copy',
-          type: 'file',
-          label: 'Scanned Copy',
-          required: true,
-          accept: '.pdf,.jpg,.jpeg,.png'
-        }
-      ]
-    },
-    user_id: null
+      fields: []
+    }
+  })
+  const [newField, setNewField] = useState({
+    name: '',
+    type: 'text',
+    required: false
   })
 
   useEffect(() => {
     if (session?.user?.id) {
-      setCurrentSchema(prev => ({ ...prev, user_id: session.user.id }))
       fetchSchemas()
     }
   }, [session?.user?.id])
 
   const fetchSchemas = async () => {
-    if (!session?.user?.id) return
-    
     try {
       setLoading(true)
       const { data, error } = await supabase
         .from('invoice_schemas')
         .select('*')
         .eq('user_id', session.user.id)
-        .order('created_at')
-      
+        .order('name')
+
       if (error) throw error
       setSchemas(data || [])
     } catch (error) {
       console.error('Error fetching schemas:', error)
-      toast.error('Error fetching schemas: ' + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!session?.user?.id) {
-      toast.error('You must be logged in to create a schema')
-      return
-    }
-
-    try {
-      setLoading(true)
-      const schemaData = {
-        ...currentSchema,
-        user_id: session.user.id,
-        schema: {
-          fields: currentSchema.schema.fields.map(field => ({
-            ...field,
-            name: field.name || field.label.toLowerCase().replace(/[^a-z0-9]/g, '_')
-          })),
-          required_fields: currentSchema.schema.required_fields
-        }
-      }
-
-      if (isEditing) {
-        const { error } = await supabase
-          .from('invoice_schemas')
-          .update(schemaData)
-          .eq('id', currentSchema.id)
-          .eq('user_id', session.user.id)
-
-        if (error) throw error
-        toast.success('Schema updated successfully')
-      } else {
-        const { error } = await supabase
-          .from('invoice_schemas')
-          .insert([schemaData])
-
-        if (error) throw error
-        toast.success('Schema created successfully')
-      }
-
-      setCurrentSchema({
-        name: '',
-        is_default: false,
-        schema: {
-          fields: [],
-          required_fields: [
-            {
-              name: 'payment_status',
-              type: 'select',
-              label: 'Payment Status',
-              required: true,
-              options: ['paid', 'unpaid']
-            },
-            {
-              name: 'scanned_copy',
-              type: 'file',
-              label: 'Scanned Copy',
-              required: true,
-              accept: '.pdf,.jpg,.jpeg,.png'
-            }
-          ]
-        },
-        user_id: session.user.id
-      })
-      setIsEditing(false)
-      fetchSchemas()
-    } catch (error) {
-      console.error('Error saving schema:', error)
-      toast.error(error.message)
+      toast.error('Error loading schemas')
     } finally {
       setLoading(false)
     }
   }
 
   const handleAddField = () => {
-    setCurrentSchema(prev => ({
+    if (!newField.name.trim()) {
+      toast.error('Field name is required')
+      return
+    }
+
+    setFormData(prev => ({
       ...prev,
       schema: {
         ...prev.schema,
-        fields: [
-          ...prev.schema.fields,
-          {
-            name: '',
-            type: 'text',
-            label: '',
-            required: false
-          }
-        ]
+        fields: [...prev.schema.fields, { ...newField }]
       }
     }))
-  }
 
-  const handleFieldChange = (index, field) => {
-    setCurrentSchema(prev => ({
-      ...prev,
-      schema: {
-        ...prev.schema,
-        fields: prev.schema.fields.map((f, i) => {
-          if (i === index) {
-            const safeName = field.name || field.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            return {
-              ...field,
-              name: safeName
-            };
-          }
-          return f;
-        })
-      }
-    }));
+    setNewField({
+      name: '',
+      type: 'text',
+      required: false
+    })
   }
 
   const handleRemoveField = (index) => {
-    setCurrentSchema(prev => ({
+    setFormData(prev => ({
       ...prev,
       schema: {
         ...prev.schema,
@@ -222,22 +85,87 @@ export default function SchemaSetup() {
     }))
   }
 
-  const handleUseDefaultSchema = () => {
-    setCurrentSchema(prev => ({
-      ...prev,
-      name: prev.name || 'Default Invoice Schema',
-      schema: {
-        fields: [...DEFAULT_SCHEMA.fields],
-        required_fields: [...DEFAULT_SCHEMA.required_fields]
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!session?.user?.id) return
+
+    try {
+      setLoading(true)
+      const data = {
+        ...formData,
+        user_id: session.user.id
       }
-    }))
-    toast.success('Default schema template applied')
+
+      if (editingSchema) {
+        const { error } = await supabase
+          .from('invoice_schemas')
+          .update(data)
+          .eq('id', editingSchema.id)
+          .eq('user_id', session.user.id)
+
+        if (error) throw error
+        toast.success('Schema updated successfully')
+      } else {
+        const { error } = await supabase
+          .from('invoice_schemas')
+          .insert([data])
+
+        if (error) throw error
+        toast.success('Schema created successfully')
+      }
+
+      setFormData({
+        name: '',
+        description: '',
+        schema: {
+          fields: []
+        }
+      })
+      setEditingSchema(null)
+      fetchSchemas()
+    } catch (error) {
+      console.error('Error saving schema:', error)
+      toast.error('Error saving schema')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (schema) => {
+    setEditingSchema(schema)
+    setFormData({
+      name: schema.name,
+      description: schema.description || '',
+      schema: schema.schema || { fields: [] }
+    })
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this schema? This action cannot be undone.')) return
+
+    try {
+      setLoading(true)
+      const { error } = await supabase
+        .from('invoice_schemas')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+
+      if (error) throw error
+      toast.success('Schema deleted successfully')
+      fetchSchemas()
+    } catch (error) {
+      console.error('Error deleting schema:', error)
+      toast.error('Error deleting schema')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (!session?.user?.id) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Please sign in to manage invoice schemas.</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500 dark:text-gray-400">Please sign in to manage invoice schemas.</p>
       </div>
     )
   }
@@ -246,139 +174,149 @@ export default function SchemaSetup() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Form */}
       <div className="lg:col-span-1">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium">
-              {isEditing ? 'Edit Schema' : 'Create New Schema'}
-            </h2>
-            <button
-              type="button"
-              onClick={handleUseDefaultSchema}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm 
-              font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              Use Default Template
-            </button>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Schema Name</label>
-              <input
-                type="text"
-                value={currentSchema.name}
-                onChange={(e) => setCurrentSchema({ ...currentSchema, name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary 
-                focus:ring-primary sm:text-sm"
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
+            {editingSchema ? 'Edit Schema' : 'Create Schema'}
+          </h3>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormGroup>
+              <Label htmlFor="name">Schema Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
-            </div>
+            </FormGroup>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Required Fields</label>
-              <div className="space-y-3">
-                {currentSchema.schema.required_fields.map((field, index) => (
-                  <div key={index} className="flex items-center p-3 bg-gray-50 rounded-md">
-                    <FaLock className="text-gray-400 mr-2" />
+            <FormGroup>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+              />
+            </FormGroup>
+
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Custom Fields</h4>
+              
+              <div className="space-y-4">
+                {formData.schema.fields.map((field, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                  >
                     <div>
-                      <p className="text-sm font-medium">{field.label}</p>
-                      <p className="text-xs text-gray-500">{field.type}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {field.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {field.type} {field.required && '(required)'}
+                      </p>
                     </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      onClick={() => handleRemoveField(index)}
+                    >
+                      <FaTrash className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
+
+                <div className="space-y-4">
+                  <FormGroup>
+                    <Label htmlFor="fieldName">Field Name</Label>
+                    <Input
+                      id="fieldName"
+                      value={newField.name}
+                      onChange={(e) => setNewField({ ...newField, name: e.target.value })}
+                      placeholder="Enter field name"
+                    />
+                  </FormGroup>
+
+                  <FormGroup>
+                    <Label htmlFor="fieldType">Field Type</Label>
+                    <select
+                      id="fieldType"
+                      value={newField.type}
+                      onChange={(e) => setNewField({ ...newField, type: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 
+                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm 
+                      focus:border-primary focus:ring-primary"
+                    >
+                      <option value="text">Text</option>
+                      <option value="number">Number</option>
+                      <option value="date">Date</option>
+                      <option value="email">Email</option>
+                      <option value="tel">Phone</option>
+                      <option value="url">URL</option>
+                    </select>
+                  </FormGroup>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="fieldRequired"
+                      checked={newField.required}
+                      onChange={(e) => setNewField({ ...newField, required: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 
+                      text-primary focus:ring-primary dark:bg-gray-700"
+                    />
+                    <label 
+                      htmlFor="fieldRequired" 
+                      className="ml-2 block text-sm text-gray-900 dark:text-white"
+                    >
+                      Required field
+                    </label>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleAddField}
+                    className="w-full"
+                  >
+                    <FaPlus className="h-4 w-4 mr-2" />
+                    Add Field
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Custom Fields</label>
-              <div className="space-y-3">
-                {currentSchema.schema.fields.map((field, index) => (
-                  <div key={index} className="p-3 border rounded-md">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500">Label</label>
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => handleFieldChange(index, { ...field, label: e.target.value })}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary 
-                          focus:ring-primary sm:text-sm"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500">Type</label>
-                        <select
-                          value={field.type}
-                          onChange={(e) => handleFieldChange(index, { ...field, type: e.target.value })}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary 
-                          focus:ring-primary sm:text-sm"
-                        >
-                          {FIELD_TYPES.map(type => (
-                            <option key={type.value} value={type.value}>{type.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={field.required}
-                          onChange={(e) => handleFieldChange(index, { ...field, required: e.target.checked })}
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                        <span className="ml-2 text-sm text-gray-600">Required</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveField(index)}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <button
+            <div className="flex justify-end space-x-4">
+              {editingSchema && (
+                <Button
                   type="button"
-                  onClick={handleAddField}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 
-                  shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  <FaPlus className="mr-2" /> Add Field
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              {isEditing && (
-                <button
-                  type="button"
+                  variant="secondary"
                   onClick={() => {
-                    setCurrentSchema({
+                    setEditingSchema(null)
+                    setFormData({
                       name: '',
-                      is_default: false,
+                      description: '',
                       schema: {
-                        fields: [],
-                        required_fields: currentSchema.schema.required_fields
-                      },
-                      user_id: session?.user?.id
+                        fields: []
+                      }
                     })
-                    setIsEditing(false)
                   }}
-                  className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 
-                  bg-white hover:bg-gray-50"
                 >
                   Cancel
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 type="submit"
-                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm 
-                text-white bg-primary hover:bg-primary-hover"
+                variant="primary"
+                disabled={loading}
               >
-                {isEditing ? 'Update Schema' : 'Create Schema'}
-              </button>
+                {loading ? 'Saving...' : editingSchema ? 'Update Schema' : 'Create Schema'}
+              </Button>
             </div>
           </form>
         </div>
@@ -386,63 +324,65 @@ export default function SchemaSetup() {
 
       {/* List */}
       <div className="lg:col-span-2">
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6">
-            <h2 className="text-lg font-medium">Invoice Schemas</h2>
-            <p className="mt-1 text-sm text-gray-500">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Invoice Schemas</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Manage your invoice schemas. Each schema defines the structure of your invoices.
             </p>
           </div>
-          <div className="border-t border-gray-200">
-            <ul className="divide-y divide-gray-200">
-              {schemas.length === 0 ? (
-                <li className="p-6 text-center text-gray-500">
-                  No schemas created yet. Create your first schema using the form.
-                </li>
-              ) : (
-                schemas.map(schema => (
-                  <li key={schema.id} className="p-6">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {loading && !schemas.length ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : schemas.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                No schemas created yet. Create your first schema using the form.
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                {schemas.map(schema => (
+                  <li 
+                    key={schema.id}
+                    className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium">{schema.name}</h3>
-                        <p className="text-sm text-gray-500">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                          {schema.name}
+                        </h4>
+                        {schema.description && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {schema.description}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {schema.schema.fields?.length || 0} custom fields
                         </p>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => {
-                            setCurrentSchema(schema)
-                            setIsEditing(true)
-                          }}
-                          className="text-gray-400 hover:text-gray-500"
+                      <div className="flex space-x-3">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(schema)}
                         >
-                          <FaEdit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              const { error } = await supabase
-                                .from('invoice_schemas')
-                                .delete()
-                                .eq('id', schema.id)
-                              if (error) throw error
-                              toast.success('Schema deleted successfully')
-                              fetchSchemas()
-                            } catch (error) {
-                              toast.error(error.message)
-                            }
-                          }}
-                          className="text-gray-400 hover:text-danger"
+                          <FaEdit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          onClick={() => handleDelete(schema.id)}
                         >
-                          <FaTrash className="h-5 w-5" />
-                        </button>
+                          <FaTrash className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </li>
-                ))
-              )}
-            </ul>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>

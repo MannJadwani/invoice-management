@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useGlobal, GlobalProvider } from './context/GlobalContext'
+import { ThemeProvider } from './context/ThemeContext'
 
 import MainLayout from './components/layout/MainLayout'
 import Auth from './components/Auth'
@@ -14,7 +15,28 @@ import ProductCategories from './components/products/ProductCategories'
 import CompanyManagement from './components/companies/CompanyManagement'
 import ProfileEdit from './components/profile/ProfileEdit'
 import UserSearch from './components/users/UserSearch'
+import Teams from './components/teams/Teams'
+import Reminders from './components/reminders/Reminders'
+import Reports from './components/reports/Reports'
 
+// Initialize theme from localStorage or system preference
+const initializeTheme = () => {
+  if (typeof window !== 'undefined') {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme) {
+      document.documentElement.classList.add(savedTheme)
+      return
+    }
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.add('light')
+    }
+  }
+}
+
+// Initialize theme immediately
+initializeTheme()
 
 function AppRoutes() {
   const { session } = useGlobal()
@@ -36,6 +58,9 @@ function AppRoutes() {
           <Route path="/companies" element={<CompanyManagement />} />
           <Route path="/profile/edit" element={<ProfileEdit />} />
           <Route path="/users/search" element={<UserSearch />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/reminders" element={<Reminders />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Route>
       ) : (
@@ -45,15 +70,27 @@ function AppRoutes() {
   )
 }
 
-function App() {
+export default function App() {
   return (
-    <GlobalProvider>
-      <Router>
-        <Toaster position="top-right" />
-        <AppRoutes />
-      </Router>
-    </GlobalProvider>
+    <Router>
+      <GlobalProvider>
+        <ThemeProvider>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                className: 'dark:bg-gray-800 dark:text-white',
+                duration: 4000,
+                style: {
+                  background: 'var(--toast-bg)',
+                  color: 'var(--toast-color)',
+                },
+              }}
+            />
+            <AppRoutes />
+          </div>
+        </ThemeProvider>
+      </GlobalProvider>
+    </Router>
   )
 }
-
-export default App

@@ -211,9 +211,12 @@ export default function Dashboard() {
           ),
           sub_products (
             name
+          ),
+          invoices!inner (
+            user_id
           )
         `)
-        .eq('user_id', session.user.id)
+        .eq('invoices.user_id', session.user.id)
 
       if (error) throw error
 
@@ -367,106 +370,85 @@ export default function Dashboard() {
     )
   }
 
-  const cards = [
-    {
-      title: 'Total Invoices',
-      value: loading ? '-' : stats.invoices,
-      icon: <FaFileInvoice className="h-6 w-6" />,
-      color: 'bg-primary',
-      link: '/invoices'
-    },
-    {
-      title: 'Total Revenue',
-      value: loading ? '-' : `$${stats.totalRevenue.toFixed(2)}`,
-      icon: <FaMoneyBillWave className="h-6 w-6" />,
-      color: 'bg-green-500',
-      link: '/invoices'
-    },
-    {
-      title: 'Monthly Revenue',
-      value: loading ? '-' : `$${stats.monthlyRevenue.toFixed(2)}`,
-      icon: <FaChartLine className="h-6 w-6" />,
-      color: 'bg-blue-500',
-      link: '/invoices'
-    },
-    {
-      title: 'Overdue Amount',
-      value: loading ? '-' : `$${stats.overdueAmount.toFixed(2)}`,
-      icon: <FaExclamationTriangle className="h-6 w-6" />,
-      color: 'bg-red-500',
-      link: '/invoices'
-    },
-    {
-      title: 'Active Companies',
-      value: loading ? '-' : stats.companies,
-      icon: <FaUsers className="h-6 w-6" />,
-      color: 'bg-yellow-500',
-      link: '/companies'
-    }
-  ]
-
-  const statusColors = {
-    draft: '#CBD5E0',
-    sent: '#4299E1',
-    paid: '#48BB78',
-    overdue: '#F56565'
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Overview of your invoice management system
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <button
+          onClick={() => navigate('/invoices/new')}
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
+            transition-colors duration-200 flex items-center space-x-2"
+        >
+          <FaFileInvoice className="w-4 h-4" />
+          <span>New Invoice</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-        {cards.map((card, index) => (
-          <div
-            key={index}
-            onClick={() => navigate(card.link)}
-            className="bg-white overflow-hidden shadow rounded-lg cursor-pointer 
-            transition-transform duration-200 hover:scale-105"
-          >
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className={`flex-shrink-0 rounded-md p-3 ${card.color}`}>
-                  {React.cloneElement(card.icon, { className: 'h-6 w-6 text-white' })}
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      {card.title}
-                    </dt>
-                    <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">
-                        {card.value}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div className={`bg-gray-50 px-5 py-3`}>
-              <div className="text-sm">
-                <a
-                  href={card.link}
-                  className="font-medium text-primary hover:text-primary-hover"
-                >
-                  View details
-                </a>
-              </div>
-            </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 dark:text-gray-400">Total Revenue</h3>
+            <FaMoneyBillWave className="w-5 h-5 text-green-500" />
           </div>
-        ))}
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total Revenue</p>
+            <p className="text-2xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
+            <p className="text-sm text-green-600 dark:text-green-400">
+              ₹{stats.monthlyRevenue.toLocaleString()} this month
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 dark:text-gray-400">Invoices</h3>
+            <FaFileInvoice className="w-5 h-5 text-blue-500" />
+          </div>
+          <p className="text-2xl font-bold">{stats.invoices}</p>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {stats.statusBreakdown.paid} paid
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 dark:text-gray-400">Companies</h3>
+            <FaUsers className="w-5 h-5 text-purple-500" />
+          </div>
+          <p className="text-2xl font-bold">{stats.companies}</p>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Active clients
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 dark:text-gray-400">Products</h3>
+            <FaBox className="w-5 h-5 text-orange-500" />
+          </div>
+          <p className="text-2xl font-bold">{stats.products}</p>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            In catalog
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-        {/* Monthly Revenue Chart */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Trends</h2>
-          <div className="h-64">
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold mb-4">Revenue Overview</h3>
+          <div className="h-[300px]">
             <Line
               data={monthlyData}
               options={{
@@ -476,177 +458,108 @@ export default function Dashboard() {
                   legend: {
                     display: false
                   }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: {
+                      color: 'rgba(0, 0, 0, 0.1)',
+                    }
+                  },
+                  x: {
+                    grid: {
+                      display: false
+                    }
+                  }
                 }
               }}
             />
           </div>
         </div>
 
-        {/* Invoice Status Breakdown */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h2>
-          <div className="h-64">
+        {/* Status Breakdown */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold mb-4">Invoice Status</h3>
+          <div className="h-[300px]">
             <Doughnut
               data={{
-                labels: Object.keys(stats.statusBreakdown).map(
-                  status => status.charAt(0).toUpperCase() + status.slice(1)
-                ),
-                datasets: [
-                  {
-                    data: Object.values(stats.statusBreakdown),
-                    backgroundColor: Object.values(statusColors)
-                  }
-                ]
+                labels: ['Draft', 'Sent', 'Paid', 'Overdue'],
+                datasets: [{
+                  data: [
+                    stats.statusBreakdown.draft,
+                    stats.statusBreakdown.sent,
+                    stats.statusBreakdown.paid,
+                    stats.statusBreakdown.overdue
+                  ],
+                  backgroundColor: [
+                    '#94a3b8',
+                    '#60a5fa',
+                    '#22c55e',
+                    '#ef4444'
+                  ]
+                }]
               }}
               options={{
                 responsive: true,
-                maintainAspectRatio: false
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'bottom'
+                  }
+                }
               }}
             />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-        {/* Top Companies */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Top Companies by Revenue</h2>
-            <button
-              onClick={() => navigate('/companies')}
-              className="text-sm text-primary hover:text-primary-hover"
-            >
-              View all
-            </button>
-          </div>
-          <div className="space-y-4">
-            {topCompanies.map((company, index) => (
-              <div key={company.id} className="flex items-center">
-                <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center
-                  ${index === 0 ? 'bg-yellow-100 text-yellow-600' :
-                    index === 1 ? 'bg-gray-100 text-gray-600' :
-                    index === 2 ? 'bg-orange-100 text-orange-600' :
-                    'bg-gray-50 text-gray-500'}`}
-                >
-                  {index + 1}
-                </div>
-                <div className="ml-4 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">{company.name}</p>
-                    <p className="text-sm font-medium text-gray-500">${company.total.toFixed(2)}</p>
-                  </div>
-                  <p className="text-sm text-gray-500">{company.invoiceCount} invoices</p>
-                </div>
-              </div>
-            ))}
-            {topCompanies.length === 0 && (
-              <p className="text-center text-gray-500 py-4">No company data available</p>
-            )}
-          </div>
-        </div>
-
-        {/* Top Products */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Top Products</h2>
-            <button
-              onClick={() => navigate('/products/categories')}
-              className="text-sm text-primary hover:text-primary-hover"
-            >
-              View all
-            </button>
-          </div>
-          <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={product.name} className="flex items-center">
-                <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center
-                  ${index === 0 ? 'bg-green-100 text-green-600' :
-                    index === 1 ? 'bg-blue-100 text-blue-600' :
-                    index === 2 ? 'bg-purple-100 text-purple-600' :
-                    'bg-gray-50 text-gray-500'}`}
-                >
-                  <FaBoxOpen className="h-4 w-4" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                    <p className="text-sm font-medium text-gray-500">${product.totalSales.toFixed(2)}</p>
-                  </div>
-                  <p className="text-sm text-gray-500">{product.quantity} units sold</p>
-                </div>
-              </div>
-            ))}
-            {topProducts.length === 0 && (
-              <p className="text-center text-gray-500 py-4">No product data available</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-        {/* Due/Overdue Invoices */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Due & Overdue Invoices</h2>
-            <button
-              onClick={() => navigate('/invoices')}
-              className="text-sm text-primary hover:text-primary-hover"
-            >
-              View all
-            </button>
-          </div>
-          <div className="space-y-4">
-            {dueInvoices.map(invoice => (
-              <div key={invoice.id} className="flex items-center">
-                <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center
-                  ${invoice.status === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'}`}
-                >
-                  <FaCalendarAlt className="h-4 w-4" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      {invoice.invoice_number} - {invoice.companies?.name}
-                    </p>
-                    <p className="text-sm font-medium text-gray-500">${invoice.total_amount.toFixed(2)}</p>
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    Due: {new Date(invoice.due_date).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-            {dueInvoices.length === 0 && (
-              <p className="text-center text-gray-500 py-4">No due or overdue invoices</p>
-            )}
-          </div>
-        </div>
-
+      {/* Recent Activity and Due Invoices */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Activity */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
           <div className="space-y-4">
-            {recentActivity.map(activity => (
-              <div key={activity.id} className="flex items-center">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
-                  <FaUserClock className="h-4 w-4 text-gray-600" />
+            {recentActivity.map((activity, index) => (
+              <div key={index} className="flex items-start space-x-4">
+                <div className="rounded-full bg-gray-100 dark:bg-gray-700 p-2">
+                  <FaUserClock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-900">
-                    Invoice {activity.invoice_number} - {activity.companies?.name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Status changed to {activity.status}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(activity.updated_at).toLocaleString()}
+                <div>
+                  <p className="text-sm font-medium">{activity.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(activity.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
             ))}
-            {recentActivity.length === 0 && (
-              <p className="text-center text-gray-500 py-4">No recent activity</p>
-            )}
+          </div>
+        </div>
+
+        {/* Due Invoices */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold mb-4">Due Invoices</h3>
+          <div className="space-y-4">
+            {dueInvoices.map((invoice, index) => (
+              <div 
+                key={index}
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+              >
+                <div className="flex items-center space-x-4">
+                  <FaCalendarAlt className="w-4 h-4 text-red-500" />
+                  <div>
+                    <p className="font-medium">{invoice.invoice_number}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Due {new Date(invoice.due_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-lg font-semibold">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    ₹{invoice.total_amount.toLocaleString()}
+                  </p>
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

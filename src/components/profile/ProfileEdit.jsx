@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { useGlobal } from '../../context/GlobalContext'
 import { toast } from 'react-hot-toast'
-import { FaUser, FaSave } from 'react-icons/fa'
+import { FaUser, FaSave, FaPhone } from 'react-icons/fa'
 
 export default function ProfileEdit() {
   const { session } = useGlobal()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState({
-    full_name: '',
+    display_name: '',
     email: '',
-    avatar_url: ''
+    phone_number: ''
   })
 
   useEffect(() => {
@@ -27,13 +27,36 @@ export default function ProfileEdit() {
         .eq('id', session.user.id)
         .single()
 
-      if (error) throw error
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Profile doesn't exist, create it
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert([{
+              id: session.user.id,
+              email: session.user.email,
+              display_name: session.user.user_metadata?.full_name || session.user.email.split('@')[0]
+            }])
+            .select()
+            .single()
 
-      if (data) {
+          if (createError) throw createError
+
+          if (newProfile) {
+            setProfile({
+              display_name: newProfile.display_name || '',
+              email: newProfile.email || session.user.email,
+              phone_number: newProfile.phone_number || ''
+            })
+          }
+        } else {
+          throw error
+        }
+      } else if (data) {
         setProfile({
-          full_name: data.full_name || '',
+          display_name: data.display_name || '',
           email: data.email || session.user.email,
-          avatar_url: data.avatar_url || ''
+          phone_number: data.phone_number || ''
         })
       }
     } catch (error) {
@@ -52,9 +75,9 @@ export default function ProfileEdit() {
         .from('profiles')
         .upsert({
           id: session.user.id,
-          full_name: profile.full_name,
+          display_name: profile.display_name,
           email: profile.email,
-          avatar_url: profile.avatar_url,
+          phone_number: profile.phone_number,
           updated_at: new Date().toISOString()
         })
 
@@ -94,8 +117,8 @@ export default function ProfileEdit() {
               </div>
               <input
                 type="text"
-                value={profile.full_name}
-                onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
+                value={profile.display_name}
+                onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
                 className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
                 placeholder="Enter your display name"
               />
@@ -115,6 +138,24 @@ export default function ProfileEdit() {
             <p className="mt-1 text-sm text-gray-500">
               Email address cannot be changed
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Phone Number
+            </label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaPhone className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="tel"
+                value={profile.phone_number}
+                onChange={(e) => setProfile({ ...profile, phone_number: e.target.value })}
+                className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="Enter your phone number"
+              />
+            </div>
           </div>
 
           <div className="pt-4">

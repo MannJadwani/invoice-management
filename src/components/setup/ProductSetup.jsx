@@ -3,6 +3,13 @@ import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa'
 import { supabase } from '../../supabase'
 import { useGlobal } from '../../context/GlobalContext'
 import { toast } from 'react-hot-toast'
+import { 
+  Input, 
+  Textarea, 
+  Label, 
+  FormGroup, 
+  Button 
+} from '../ui/FormElements'
 
 export default function ProductSetup() {
   const { session } = useGlobal()
@@ -129,8 +136,8 @@ export default function ProductSetup() {
 
   if (!session?.user?.id) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Please sign in to manage products.</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500 dark:text-gray-400">Please sign in to manage products.</p>
       </div>
     )
   }
@@ -138,69 +145,53 @@ export default function ProductSetup() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Form */}
-      <div className="card">
-        <h3 className="text-lg font-medium mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
           {editingProduct ? 'Edit Product' : 'Add Product'}
         </h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Product Name
-            </label>
-            <input
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <FormGroup>
+            <Label htmlFor="name">Product Name</Label>
+            <Input
               type="text"
               id="name"
               name="name"
               required
               value={formData.name}
               onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm 
-              focus:border-primary focus:ring-primary sm:text-sm"
             />
-          </div>
+          </FormGroup>
 
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <textarea
+          <FormGroup>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
               id="description"
               name="description"
               rows={3}
               value={formData.description}
               onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm 
-              focus:border-primary focus:ring-primary sm:text-sm"
             />
-          </div>
+          </FormGroup>
 
-          <div>
-            <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-              Price
-            </label>
-            <div className="relative mt-1 rounded-md shadow-sm">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <span className="text-gray-500 sm:text-sm">$</span>
-              </div>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                id="price"
-                name="price"
-                required
-                value={formData.price}
-                onChange={handleInputChange}
-                className="block w-full rounded-md border-gray-300 pl-7 
-                focus:border-primary focus:ring-primary sm:text-sm"
-              />
-            </div>
-          </div>
+          <FormGroup>
+            <Label htmlFor="price">Price</Label>
+            <Input
+              type="number"
+              id="price"
+              min="0"
+              step="0.01"
+              required
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              leftIcon="₹"
+            />
+          </FormGroup>
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-4">
             {editingProduct && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => {
                   setEditingProduct(null)
                   setFormData({
@@ -210,67 +201,79 @@ export default function ProductSetup() {
                     user_id: session?.user?.id
                   })
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm 
-                font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none 
-                focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
                 Cancel
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={loading}
-              className="inline-flex justify-center py-2 px-4 border border-transparent 
-              shadow-sm text-sm font-medium rounded-md text-white bg-primary 
-              hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 
-              focus:ring-primary disabled:opacity-50"
             >
               {loading ? 'Saving...' : editingProduct ? 'Update' : 'Add Product'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
 
       {/* List */}
-      <div className="card">
-        <h3 className="text-lg font-medium mb-4">Products</h3>
-        {loading ? (
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : products.length === 0 ? (
-          <p className="text-gray-500 text-center">No products added yet.</p>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {products.map(product => (
-              <li key={product.id} className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
-                    {product.description && (
-                      <p className="text-sm text-gray-500">{product.description}</p>
-                    )}
-                    <p className="text-sm font-medium text-primary">${product.price}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Products</h3>
+        </div>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {loading && !products.length ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+              No products added yet.
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {products.map(product => (
+                <li 
+                  key={product.id} 
+                  className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                        {product.name}
+                      </h4>
+                      {product.description && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {product.description}
+                        </p>
+                      )}
+                      <p className="text-sm font-medium text-primary dark:text-primary-400">
+                        ₹{parseFloat(product.price).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex space-x-3">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(product)}
+                      >
+                        <FaEdit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        onClick={() => handleDelete(product.id)}
+                      >
+                        <FaTrash className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="text-primary hover:text-primary-hover"
-                    >
-                      <FaEdit className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <FaTrash className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   )
