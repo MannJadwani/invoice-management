@@ -27,6 +27,7 @@ export default function Teams() {
   const [searchEmail, setSearchEmail] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [teamInvoices, setTeamInvoices] = useState([])
+  const [addMemberLoading, setAddMemberLoading] = useState(false)
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -177,54 +178,143 @@ export default function Teams() {
         .from('profiles')
         .select('*')
         .ilike('email', `%${searchEmail}%`)
+        .neq('id', session.user.id)
         .limit(5)
 
       if (error) throw error
       setSearchResults(data || [])
 
       if (data.length === 0) {
-        toast.info('No users found')
+        toast.info('No users found with that email')
       }
     } catch (error) {
+      console.error('Error searching users:', error)
       toast.error('Error searching users')
-      console.error('Error:', error)
     } finally {
       setLoading(false)
     }
   }
 
   const handleAddMember = async (userId) => {
+    if (!selectedTeam?.id) {
+      toast.error('No team selected')
+      return
+    }
+
     try {
-      const { error } = await supabase
+      setAddMemberLoading(true)
+
+      // First check if user exists and their current team status
+      const { data: userProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('id, email, team_id')
+        .eq('id', userId)
+        .single()
+
+      if (checkError) {
+        console.error('Error checking user profile:', checkError)
+        toast.error('Error checking user profile: ' + checkError.message)
+        return
+      }
+
+      if (userProfile.team_id) {
+        toast.error('User is already a member of another team')
+        return
+      }
+
+      // Verify current user is the team owner
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('owner_id')
+        .eq('id', selectedTeam.id)
+        .single()
+
+      if (teamError || !team) {
+        console.error('Error checking team ownership:', teamError)
+        toast.error('Team not found or error verifying team ownership')
+        return
+      }
+
+      if (team.owner_id !== session.user.id) {
+        toast.error('Only team owners can add members')
+        return
+      }
+
+      // Add user to team by updating their profile
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ team_id: selectedTeam.id })
         .eq('id', userId)
 
-      if (error) throw error
+      if (updateError) {
+        console.error('Error updating profile:', updateError)
+        toast.error('Error adding member: ' + updateError.message)
+        return
+      }
 
-      toast.success('Member added successfully')
+      toast.success(`Successfully added member to the team`)
+      await fetchTeams() // Refresh teams data
+      setSearchResults(prevResults => 
+        prevResults.filter(user => user.id !== userId)
+      )
       setShowAddMemberModal(false)
-      fetchTeams()
     } catch (error) {
-      toast.error('Error adding member')
-      console.error('Error:', error)
+      console.error('Unexpected error:', error)
+      toast.error('An unexpected error occurred: ' + (error.message || 'Unknown error'))
+    } finally {
+      setAddMemberLoading(false)
     }
   }
 
   const handleRemoveMember = async (userId) => {
     try {
-      const { error } = await supabase
+      // Verify current user is the team owner
+      const { data: userProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('team_id')
+        .eq('id', userId)
+        .single()
+
+      if (checkError) {
+        console.error('Error checking user profile:', checkError)
+        toast.error('Error checking user profile')
+        return
+      }
+
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('owner_id')
+        .eq('id', userProfile.team_id)
+        .single()
+
+      if (teamError) {
+        console.error('Error checking team ownership:', teamError)
+        toast.error('Error verifying team ownership')
+        return
+      }
+
+      if (team.owner_id !== session.user.id) {
+        toast.error('Only team owners can remove members')
+        return
+      }
+
+      // Remove user from team
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ team_id: null })
         .eq('id', userId)
 
-      if (error) throw error
+      if (updateError) {
+        console.error('Error removing member:', updateError)
+        toast.error('Error removing member: ' + updateError.message)
+        return
+      }
 
       toast.success('Member removed successfully')
-      fetchTeams()
+      await fetchTeams()
     } catch (error) {
-      toast.error('Error removing member')
-      console.error('Error:', error)
+      console.error('Error removing member:', error)
+      toast.error('An unexpected error occurred while removing member')
     }
   }
 
@@ -455,7 +545,7 @@ export default function Teams() {
           setSearchEmail('')
           setSearchResults([])
         }}
-        title="Add Team Member"
+        title={`Add Member to ${selectedTeam?.name || 'Team'}`}
       >
         <form onSubmit={handleSearchUsers} className="space-y-6">
           <FormGroup>
@@ -467,13 +557,18 @@ export default function Teams() {
                 value={searchEmail}
                 onChange={(e) => setSearchEmail(e.target.value)}
                 placeholder="Enter email address"
+                disabled={loading}
               />
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={loading}
+                disabled={loading || !searchEmail.trim()}
               >
-                <FaSearch className="h-4 w-4" />
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <FaSearch className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </FormGroup>
@@ -500,9 +595,13 @@ export default function Teams() {
                     <Button
                       variant="secondary"
                       onClick={() => handleAddMember(user.id)}
-                      disabled={user.team_id === selectedTeam?.id}
+                      disabled={addMemberLoading}
                     >
-                      {user.team_id === selectedTeam?.id ? 'Already Member' : 'Add'}
+                      {addMemberLoading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      ) : (
+                        'Add'
+                      )}
                     </Button>
                   </li>
                 ))}

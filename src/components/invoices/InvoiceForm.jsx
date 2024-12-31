@@ -131,12 +131,12 @@ export default function InvoiceForm({ invoice = null }) {
       const { data, error } = await supabase
         .from('sub_products')
         .select('*')
-        .eq('product_id', productId)
+        .eq('parent_product_id', productId)
         .order('name')
 
       if (error) throw error
       setSubProducts(prev => {
-        const existing = prev.filter(p => p.product_id !== productId)
+        const existing = prev.filter(p => p.parent_product_id !== productId)
         return [...existing, ...(data || [])]
       })
     } catch (error) {
@@ -462,7 +462,7 @@ export default function InvoiceForm({ invoice = null }) {
                       </Select>
                     </FormGroup>
 
-                    {item.product_id && subProducts.filter(p => p.product_id === item.product_id).length > 0 && (
+                    {item.product_id && subProducts.filter(p => p.parent_product_id === item.product_id).length > 0 && (
                       <FormGroup>
                         <Label htmlFor={`sub_product_${index}`}>Sub Product</Label>
                         <Select
@@ -472,7 +472,7 @@ export default function InvoiceForm({ invoice = null }) {
                         >
                           <option value="">Select a sub product</option>
                           {subProducts
-                            .filter(p => p.product_id === item.product_id)
+                            .filter(p => p.parent_product_id === item.product_id)
                             .map(product => (
                               <option key={product.id} value={product.id}>
                                 {product.name} - ₹{product.price}
